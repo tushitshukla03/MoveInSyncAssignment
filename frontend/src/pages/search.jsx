@@ -1,57 +1,51 @@
-import React from 'react';
-import arrow from '../assets/arrow.png';
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
 import Image from 'next/image';
+import arrow from '../assets/arrow.png';
 
 const BusList = () => {
-  const buses = [
-    {
-      name: 'Babu Travels',
-      type: 'Bharat Benz A/C Sleeper (2+1)',
-      departure: '21:45',
-      duration: '10h 35m',
-      arrival: '08:20',
-      date: '26-Oct',
-      rating: 4.0,
-      reviews: 401,
-      fare: 1999,
-      seatsAvailable: 3,
-      totalSeats: 30
-    },
-    {
-      name: 'Jai Shrinath Ji Ki Travels',
-      type: 'NON A/C Sleeper (2+1)',
-      departure: '21:45',
-      duration: '10h 00m',
-      arrival: '07:45',
-      date: '26-Oct',
-      rating: 3.8,
-      reviews: 262,
-      fare: 1000,
-      seatsAvailable: 21,
-      totalSeats: 35
-    },
-    {
-      name: 'Samreen Travels',
-      type: 'A/C Sleeper (2+1)',
-      departure: '21:30',
-      duration: '10h 35m',
-      arrival: '08:05',
-      date: '26-Oct',
-      rating: 3.7,
-      reviews: 347,
-      fare: 1800,
-      seatsAvailable: 5,
-      totalSeats: 30
-    },
-  ];
+  const router = useRouter();
+  const [buses, setBuses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchBuses = async () => {
+      if (!router.isReady) return;
+
+      const { source, destination, date } = router.query;
+      
+      try {
+        const response = await fetch(
+          `http://localhost:8000/api/trips/?source=${source}&destination=${destination}&travel_date=${date}`
+        );
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch bus data');
+        }
+        
+        const data = await response.json();
+        console.log(data)
+        setBuses(data);
+        setLoading(false);
+      } catch (err) {
+        setError(err.message);
+        setLoading(false);
+      }
+    };
+
+    fetchBuses();
+  }, [router.isReady, router.query]);
 
   const getSeatAvailabilityColor = (seatsAvailable, totalSeats) => {
     const occupancy = ((totalSeats - seatsAvailable) / totalSeats) * 100;
-    
-    if (occupancy <= 60) return 'text-green-500'; // Green if 60% or less
-    if (occupancy > 60 && occupancy <= 90) return 'text-yellow-500'; // Yellow if 60% - 90%
-    return 'text-red-500'; // Red if 90% - 100%
+    if (occupancy <= 60) return 'text-green-500';
+    if (occupancy > 60 && occupancy <= 90) return 'text-yellow-500';
+    return 'text-red-500';
   };
+
+  if (loading) return <div className="text-center py-8">Loading...</div>;
+  if (error) return <div className="text-center py-8 text-red-500">{error}</div>;
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -59,12 +53,17 @@ const BusList = () => {
         <div className="flex flex-col items-start justify-between my-4">
           <hr className="w-[80vw] border-gray-300 py-2" />
           <div className="flex py-2 mb-2">
-            <p className="font px-2">Ahmedabad</p>
+            <p className="px-2">{router.query.source}</p>
             <span>
               <Image alt="arrow" className="h-4 w-4 mt-1" src={arrow} />
             </span>
-            <p className="px-2">Kota (Rajasthan) Bus</p>
-            <button className="px-4 py-2 bg-red-500 text-white rounded-lg text-xs ml-4">Modify</button>
+            <p className="px-2">{router.query.destination}</p>
+            <button 
+              className="px-4 py-2 bg-red-500 text-white rounded-lg text-xs ml-4"
+              onClick={() => router.push('/')}
+            >
+              Modify
+            </button>
           </div>
           <hr className="w-full border-gray-300" />
         </div>
@@ -96,7 +95,9 @@ const BusList = () => {
               </div>
               <div className="text-right">
                 <p className="text-green-600 font-bold text-lg mr-8">₹{bus.fare}</p>
-                <button className="mt-2 px-4 py-2 bg-red-500 text-white rounded-lg">View Seats</button>
+                <button className="mt-2 px-4 py-2 bg-red-500 text-white rounded-lg">
+                  View Seats
+                </button>
               </div>
             </div>
           ))}

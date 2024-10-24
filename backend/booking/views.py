@@ -8,8 +8,9 @@ from django.db import transaction
 from .models import Bus, Seat, Booking, Order
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.permissions import AllowAny
-
-
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Trip
 
 
 @api_view(['POST'])
