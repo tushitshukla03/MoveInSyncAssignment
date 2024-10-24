@@ -37,15 +37,17 @@ class OrderSerializer(serializers.ModelSerializer):
 
 class TripAvailabilitySerializer(serializers.ModelSerializer):
     bus = BusSerializer() 
-    route = serializers.CharField(source='route.route_name')
-    arrival_time = serializers.TimeField(source='route.route_time', read_only=True)  # Include route time as arrival_time
-    price = serializers.IntegerField(source='route.route_price', read_only=True)  # Include route price
+    route_name = serializers.CharField(source='route.route_name')
+    route_id = serializers.IntegerField(source='route.id')  # Add route_id
+    arrival_time = serializers.TimeField(source='route.route_time', read_only=True)
+    price = serializers.IntegerField(source='route.route_price', read_only=True)
     all_seats = serializers.SerializerMethodField()
 
     class Meta:
         model = Trip    
-        fields = ['id', 'bus', 'route', 'date', 'arrival_time', 'price', 'all_seats']  # Add arrival_time and price
+        fields = ['id', 'bus', 'route_name', 'route_id', 'date', 'arrival_time', 'price', 'all_seats']  # Include route_id
 
     def get_all_seats(self, obj):
         all_seats = Seat.objects.filter(trip=obj)
         return AvailableSeatSerializer(all_seats, many=True).data
+
