@@ -13,7 +13,7 @@ class Route(models.Model):
     route_to = models.CharField(max_length=100)
     route_price = models.IntegerField()
     route_time = models.TimeField()
-
+    
     def __str__(self):
         return f"{self.route_name} - {self.route_from} to {self.route_to}"
 

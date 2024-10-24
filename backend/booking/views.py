@@ -14,6 +14,27 @@ from .models import Trip
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def cancel_booking(request, booking_id):
+    user = request.user
+    
+    try:
+        booking = Booking.objects.get(id=booking_id, order__user=user)
+    except Booking.DoesNotExist:
+        return Response({'error': 'Booking not found or you do not have permission to cancel this booking.'}, status=status.HTTP_404_NOT_FOUND)
+
+    seat = booking.seat
+    seat.seat_status = False
+    seat.save()
+
+    booking.order.status = 'Cancelled'
+    booking.order.save()
+
+    booking.delete()
+
+    return Response({'message': 'Booking cancelled successfully'}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
 def create_booking(request):
     user = request.user
     bus_id = request.data.get('bus_id')
@@ -125,8 +146,26 @@ class OrderViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Order.objects.filter(user=self.request.user)
+        status = self.request.query_params.get('status', None)
+        queryset = Order.objects.filter(user=self.request.user)
         
+        if status:
+            queryset = queryset.filter(status=status)
+            
+        return queryset.order_by('-created_at')
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_trips(request):
+    status = request.query_params.get('status', 'all')
+    
+    orders = Order.objects.filter(user=request.user)
+    if status != 'all':
+        orders = orders.filter(status=status)
+    
+    orders = orders.order_by('-created_at')
+    serializer = OrderSerializer(orders, many=True)
+    
+    return Response(serializer.data)  
 
 class RouteViewSet(viewsets.ModelViewSet):
     queryset = Route.objects.all()

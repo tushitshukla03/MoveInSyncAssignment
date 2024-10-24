@@ -29,11 +29,36 @@ class BookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking
         fields = '__all__'
+class BookingDetailSerializer(serializers.ModelSerializer):
+    seat = SeatSerializer()
+    trip = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Booking
+        fields = ['id', 'seat', 'user_name', 'booking_price', 'trip']
+    
+    def get_trip(self, obj):
+        trip = obj.seat.trip
+        return {
+            'date': trip.date,
+            'day': trip.date.strftime('%A'),
+            'monthYear': trip.date.strftime('%b %Y'),
+            'route': f"{trip.route.route_from} – {trip.route.route_to}",
+            'company': trip.bus.bus_name,
+            'boarding': trip.route.route_name,
+            'route_time': trip.route.route_time.strftime('%H:%M'),
+            'bus_number': trip.bus.bus_number
+        }
 
 class OrderSerializer(serializers.ModelSerializer):
+    bookings = BookingDetailSerializer(many=True, read_only=True)
+    status = serializers.CharField(source='get_status_display')
+    created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S")
+    
     class Meta:
         model = Order
-        fields = '__all__'
+        fields = ['id', 'order_email', 'order_phone_number', 'total_price', 
+                 'status', 'created_at', 'bookings']
 
 class TripAvailabilitySerializer(serializers.ModelSerializer):
     bus = BusSerializer() 
