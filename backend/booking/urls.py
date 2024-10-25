@@ -18,6 +18,5 @@ urlpatterns = [
     path('create_booking/', create_booking, name='create_booking'),
     path('trips/', available_trips, name='available_trips'),
     path('user-trips/', get_user_trips, name='user-trips'),
-    path('cancel-booking/<int:booking_id>/', cancel_booking, name='cancel-booking'),
-
+    path('orders/<int:order_id>/cancel/', cancel_booking, name='cancel-booking'),
 ]

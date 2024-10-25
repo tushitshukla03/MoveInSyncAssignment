@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import download from '../assets/download.png';
-import { useSelector } from 'react-redux'; 
+import cancel from '../assets/cancel.png';
+import { useSelector } from 'react-redux';
 import { selectUser } from '../utils/userSlice';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 export default function MyTrips() {
   const [activeTab, setActiveTab] = useState('upcoming');
@@ -12,6 +15,7 @@ export default function MyTrips() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const user = useSelector(selectUser);
+
   // Colors for PDF
   const colors = {
     primary: [220, 38, 38],    // Red
@@ -38,11 +42,9 @@ export default function MyTrips() {
     loadLibraries();
   }, []);
 
-  // Fetch bookings from API
   useEffect(() => {
     const fetchBookings = async () => {
       try {
-        const token = 'your-auth-token-here';  // Replace with actual token or get from context/store
         const response = await fetch('http://localhost:8000/api/user-trips/', {
           method: 'GET',
           headers: {
@@ -65,14 +67,28 @@ export default function MyTrips() {
     };
 
     fetchBookings();
-  }, []);
+  }, [user]);
 
   const groupBookingsByStatus = (bookings) => {
     const today = new Date();
     return bookings.reduce((acc, order) => {
+      // Initialize status as 'cancelled' if order status is Cancelled
+      if (order.status === 'Cancelled') {
+        if (!acc['cancelled']) {
+          acc['cancelled'] = [];
+        }
+        acc['cancelled'].push(order);
+        return acc;
+      }
+
+      // Skip if no bookings (shouldn't happen for non-cancelled orders, but just in case)
+      if (!order.bookings || order.bookings.length === 0) {
+        return acc;
+      }
+
       const tripDate = new Date(order.bookings[0].trip.date);
       const status = tripDate > today ? 'upcoming' : 'completed';
-      
+
       if (!acc[status]) {
         acc[status] = [];
       }
@@ -81,12 +97,16 @@ export default function MyTrips() {
     }, { upcoming: [], completed: [], cancelled: [] });
   };
 
-  const groupedBookings = groupBookingsByStatus(bookings);
-
   const handleDownload = async (order) => {
     try {
       if (!jsPDF || !QRCode) {
         console.error('Libraries not loaded yet');
+        return;
+      }
+
+      // Handle cancelled orders with no bookings
+      if (!order.bookings || order.bookings.length === 0) {
+        toast.error('Cannot download ticket for cancelled order');
         return;
       }
 
@@ -172,14 +192,45 @@ export default function MyTrips() {
       doc.save(`${trip.company}-Ticket-${ticketNumber}.pdf`);
     } catch (error) {
       console.error('Error generating PDF:', error);
+      toast.error('Error generating ticket PDF');
+    }
+  };
+
+  const handleCancelBooking = async (order) => {
+    try {
+        const response = await fetch(`http://localhost:8000/api/orders/${order.id}/cancel/`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${user.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      // Optionally refetch bookings or update local state
+      setBookings((prevBookings) => 
+        prevBookings.map((b) =>
+          b.id === order.id ? { ...b, status: 'Cancelled' } : b
+        )
+      );
+
+      toast.success('Booking cancelled successfully!');
+    } catch (error) {
+      toast.error(`Error cancelling booking: ${error.message}`);
     }
   };
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
 
+  const groupedBookings = groupBookingsByStatus(bookings);
+
   return (
     <div className="bg-gray-100 min-h-screen overflow-y-auto">
+      <ToastContainer />
       {/* Tab Navigation */}
       <div className="flex justify-center bg-white shadow">
         {['upcoming', 'completed', 'cancelled'].map((tab) => (
@@ -199,6 +250,36 @@ export default function MyTrips() {
       <div className="p-4">
         {groupedBookings[activeTab].length > 0 ? (
           groupedBookings[activeTab].map((order) => {
+            // For cancelled orders with no bookings, show basic info
+            if (order.status === 'Cancelled' && (!order.bookings || order.bookings.length === 0)) {
+              return (
+                <div
+                  key={order.id}
+                  className="bg-white p-4 rounded-lg shadow mb-4 flex justify-between items-start"
+                >
+                  <div>
+                    <div className="text-red-600 font-bold text-2xl">
+                      {new Date(order.created_at).getDate().toString().padStart(2, '0')}
+                    </div>
+                    <div className="text-gray-500">
+                      {new Date(order.created_at).toLocaleDateString('en-US', { weekday: 'long' })}
+                    </div>
+                    <div className="text-gray-500">
+                      {new Date(order.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                    </div>
+                  </div>
+                  <div className="flex-grow ml-4">
+                    <div className="font-semibold">Cancelled Order #{order.id}</div>
+                    <div className="text-gray-500">{order.order_email}</div>
+                    <div className="text-blue-600 font-semibold mb-2">
+                      ₹{order.total_price}
+                    </div>
+                    <div className="text-red-600">Order Cancelled</div>
+                  </div>
+                </div>
+              );
+            }
+
             const trip = order.bookings[0].trip;
             const dateObj = new Date(trip.date);
             const day = dateObj.getDate().toString().padStart(2, '0');
@@ -206,50 +287,45 @@ export default function MyTrips() {
             return (
               <div
                 key={order.id}
-                className="bg-white p-4 rounded-lg shadow mb-4 flex justify-between items-start"
-              >
-                <div>
+                className="bg-white p-4 rounded-lg shadow mb-4 flex justify-between"
+              > <div className='flex space-x-10'>
+                <div >
                   <div className="text-red-600 font-bold text-2xl">{day}</div>
                   <div className="text-gray-500">{trip.day}</div>
                   <div className="text-gray-500">{trip.monthYear}</div>
                 </div>
-                <div className="flex-grow ml-4">
-                  <div className="font-semibold">{trip.route}</div>
-                  <div className="text-gray-500">{trip.company}</div>
-                  <div className="text-gray-500">Boarding: {trip.boarding}</div>
-                  <div className="text-gray-500">Time: {trip.route_time}</div>
-                  <div className="text-gray-500">
-                    Seats: {order.bookings.map(b => b.seat.seat_number).join(', ')}
-                  </div>
-                  <div className="text-gray-500">
-                    Passengers: {order.bookings.map(b => b.user_name).join(', ')}
-                  </div>
-                  <div className="text-xs text-gray-400 mt-1">
-                    Order ID: {order.id}
-                  </div>
-                </div>
-                <div className="flex flex-col items-end">
-                  <div className="text-green-500 font-bold mb-2 m-auto">
-                    {order.status}
-                  </div>
-                  <div className="text-blue-600 font-semibold mb-2 m-auto">
+                  <div className='mt-2'>
+                    <div className="font-semibold">{trip.route}</div>
+                    <div className="text-gray-500">{trip.company}</div>
+                    <div className="text-blue-600 font-semibold mb-2">
                     ₹{order.total_price}
+                    </div>
+                  </div></div>
+                  <div className=''>
+                  {activeTab === 'upcoming' && order.status !== 'Cancelled' && (
+                    <button
+                      onClick={() => handleCancelBooking(order)}
+                      className="mt-2 text-red-600 flex  hover:text-red-800 text-sm bg-red-50 hover:bg-red-100 px-4 py-2 rounded-lg transition-colors mr-2"
+                    >
+                      <Image src={cancel} alt="Cancel Booking" className='mr-2' width={20} height={20} />
+                      <span>Cancel Booking</span>
+                    </button>
+                  )}
+                  {order.status !== 'Cancelled' && (
+                    <button
+                      onClick={() => handleDownload(order)}
+                      className="mt-2 flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-lg transition-colors"
+                    >
+                      <Image src={download} alt="Download Ticket" width={20} height={20} />
+                      <span>Download Ticket</span>
+                    </button>
+                  )}
                   </div>
-                  <button
-                    onClick={() => handleDownload(order)}
-                    className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-lg transition-colors"
-                  >
-                    <Image src={download} alt="Download Ticket" width={20} height={20} />
-                    <span>Download Ticket</span>
-                  </button>
                 </div>
-              </div>
             );
           })
         ) : (
-          <div className="text-center text-gray-500">
-            No {activeTab} trips found.
-          </div>
+          <div className="text-center text-gray-500 mt-8">No bookings found.</div>
         )}
       </div>
     </div>

@@ -17,7 +17,7 @@ const Signup = () => {
 
     // Data object to be sent to the API
     const userData = {
-      phone: phone,
+      phone_number: phone,
       email: email,
       password: password,
     };

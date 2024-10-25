@@ -57,7 +57,7 @@ export default function BookingForm() {
     e.preventDefault();
 
     const bookingData = {
-      bus_id: bus.id,
+      bus_id: 1,
       route_id: bus.route_id,
       travel_date: bus.date,
       seats: seats.map((seat, index) => ({
@@ -85,7 +85,7 @@ export default function BookingForm() {
 
       const data = await response.json();
       toast.success('Booking successful!');
-      router.push('/confirmation');
+      router.push('/mytravel');
     } catch (error) {
       toast.error(`Error: ${error.message}`);
     }

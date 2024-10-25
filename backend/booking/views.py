@@ -15,24 +15,67 @@ from .models import Trip
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def cancel_booking(request, booking_id):
+def cancel_booking(request, order_id):
     user = request.user
-    
+
     try:
-        booking = Booking.objects.get(id=booking_id, order__user=user)
-    except Booking.DoesNotExist:
-        return Response({'error': 'Booking not found or you do not have permission to cancel this booking.'}, status=status.HTTP_404_NOT_FOUND)
+        order = Order.objects.get(id=order_id, user=user)
+    except Order.DoesNotExist:
+        return Response({
+            'error': 'Order not found or you do not have permission to cancel this order.'
+        }, status=status.HTTP_404_NOT_FOUND)
 
-    seat = booking.seat
-    seat.seat_status = False
-    seat.save()
+    if order.status == 'Cancelled':
+        return Response({
+            'error': 'This order has already been cancelled.'
+        }, status=status.HTTP_400_BAD_REQUEST)
 
-    booking.order.status = 'Cancelled'
-    booking.order.save()
+    try:
+        # Start a database transaction to ensure all-or-nothing operations
+        with transaction.atomic():
+            # Get all bookings associated with this order
+            bookings = Booking.objects.filter(order=order)
+            
+            if not bookings.exists():
+                return Response({
+                    'error': 'No bookings found for this order.'
+                }, status=status.HTTP_404_NOT_FOUND)
 
-    booking.delete()
+            # Update seat status for all seats in the bookings
+            for booking in bookings:
+                seat = booking.seat
+                seat.seat_status = False  # Mark seat as available
+                seat.save()
 
-    return Response({'message': 'Booking cancelled successfully'}, status=status.HTTP_200_OK)
+            # Update order status
+            order.status = 'Cancelled'
+            order.save()
+
+            # Create response data with cancelled booking details
+            cancelled_bookings = []
+            for booking in bookings:
+                cancelled_bookings.append({
+                    'booking_id': booking.id,
+                    'seat_number': booking.seat.seat_number,
+                    'user_name': booking.user_name,
+                    'trip_date': booking.seat.trip.date,
+                    'route': f"{booking.seat.trip.route.route_from} - {booking.seat.trip.route.route_to}"
+                })
+
+            # Delete the bookings
+            bookings.delete()
+
+            return Response({
+                'message': 'Order cancelled successfully.',
+                'order_id': order.id,
+                'cancelled_amount': float(order.total_price),
+                'cancelled_bookings': cancelled_bookings
+            }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
 def create_booking(request):
