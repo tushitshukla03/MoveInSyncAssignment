@@ -18,6 +18,23 @@ please refer to:
 ## DB Diagram
 ![image](https://github.com/user-attachments/assets/7f244b8a-56fc-4558-8c02-ae687d8455de)
 
+## Colour for Seat Availabilty
+![image](https://github.com/user-attachments/assets/95aa1bfe-a2a2-4177-8c56-feccb53b8953)
+![image](https://github.com/user-attachments/assets/61b0315c-256b-4817-9f46-c01cf8ad369f)
+![image](https://github.com/user-attachments/assets/b2803a8d-ae55-4d91-8825-0b833e0c748c)
+
+## Seat Selection
+![image](https://github.com/user-attachments/assets/53c47d8b-ea71-48f7-965d-7d06d307cc45)
+
+## Manage Your Ticket
+![image](https://github.com/user-attachments/assets/9af502ac-5aa8-48dc-89e9-249fea4278a9)
+
+
+## Download Your E-ticket
+![image](https://github.com/user-attachments/assets/5490b613-e1f8-4e2e-bf0f-5090d5db589e)
+
+
+
 ## Tech Stack
 
 ### Frontend
