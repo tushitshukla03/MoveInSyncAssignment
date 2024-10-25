@@ -99,12 +99,8 @@ npm install
 yarn install
 ```
 
-3. Set up environment variables
-```bash
-cp .env.example .env.local
-```
 
-4. Start the development server
+3. Start the development server
 ```bash
 npm run dev
 # or
